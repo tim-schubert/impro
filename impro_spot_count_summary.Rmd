@@ -104,7 +104,7 @@ for (code in all_codes) {
 
 ## Output Results
 
-Writes one wide-format file per code and a consolidated summary matrix.
+Writes a consolidated summary matrix.
 
 ```{r output}
 
@@ -114,4 +114,4 @@ write_xlsx(summary_matrix, path = summary_path)
 cat("Summary matrix written to:", summary_path, "\n")
 
 cat("Processing complete:", total_file_number, "files processed.\n")
-``` 
+```
