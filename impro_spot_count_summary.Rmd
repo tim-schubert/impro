@@ -1,0 +1,117 @@
+---
+title: "Impro Spot Counts Summary"
+author: "Tim Schubert"
+date: "2025-04-23"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# impro - IMaris file PROcessing pipelines \| Spot count summary
+
+Use this pipeline to summarize spot counts for each individual in your cohort. Please put all .xlsx files into your working directory and make sure that each file is attributed to an individual by the first characters of the file name. The length of the individual codes should be the same for all individuals. Please run each of the following chunks individually and provide information when prompted to do so.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(writexl)
+library(stringr)
+library(dplyr)
+```
+
+## Configuration
+
+This chunk prompts you to specify the directory containing your `.xlsx` files and the length of the file-code prefix.
+
+```{r input, echo=TRUE}
+# Prompt for input directory (default: current working directory)
+input_dir <- readline("Enter path to directory containing .xlsx files [default: current working directory]: ")
+if (input_dir == "") input_dir <- getwd()
+input_dir <- path.expand(input_dir)
+
+# Prompt for code-length (default: 3 characters)
+code_length_input <- readline("Enter number of characters for file-code prefix [default: 3]: ")
+code_length <- as.integer(code_length_input)
+if (is.na(code_length) || code_length < 1) code_length <- 3
+
+cat("Using directory:", input_dir, "\n")
+cat("Using code length:", code_length, "\n")
+```
+
+## Gather Files
+
+Lists all `.xlsx` files in `input_dir`, extracts unique prefixes of length `code_length`, and prepares data frames.
+
+```{r gather}
+all_files <- list.files(path = input_dir,
+                        pattern = "\\.[xX][lL][sS]x$",
+                        full.names = FALSE)
+if (length(all_files) == 0) stop("No .xlsx files found in directory: ", input_dir)
+
+all_codes <- unique(str_sub(all_files, 1, code_length))
+
+# Initialize wide-format and summary data structures
+total_file_number <- 0
+all_data <- setNames(as.data.frame(matrix(nrow = 1,
+                                           ncol = length(all_codes))),
+                     all_codes)
+summary_matrix <- data.frame(
+  Code        = character(),
+  Num_Files   = integer(),
+  Total_Spots = numeric(),
+  stringsAsFactors = FALSE
+)
+```
+
+## Process Each Code
+
+For each code prefix, read all matching files, extract the "Total Number of Spots", accumulate counts, and log progress.
+
+```{r process}
+for (code in all_codes) {
+  pattern    <- paste0('^', code, '_')
+  code_files <- grep(pattern, all_files, value = TRUE)
+  sum_spots  <- 0
+  
+  for (fname in code_files) {
+    file_path <- file.path(input_dir, fname)
+    df        <- read_excel(file_path, sheet = "Overall", skip = 1)
+    no_spots  <- df %>%
+      filter(Variable == "Total Number of Spots") %>%
+      pull(Value) %>%
+      as.numeric()
+
+    sum_spots <- sum_spots + no_spots
+    message(sprintf("[%s] current count: %s", code, sum_spots))
+    message(sprintf("[%s] read file: %s",      code, fname))
+  }
+
+  total_file_number <- total_file_number + length(code_files)
+  all_data[1, code] <- sum_spots
+  summary_matrix    <- rbind(
+    summary_matrix,
+    data.frame(
+      Code        = code,
+      Num_Files   = length(code_files),
+      Total_Spots = sum_spots,
+      stringsAsFactors = FALSE
+    )
+  )
+  message(sprintf("Finished %s: %d files (total processed: %d)",
+                  code, length(code_files), total_file_number))
+}
+```
+
+## Output Results
+
+Writes one wide-format file per code and a consolidated summary matrix.
+
+```{r output}
+
+# Write summary matrix
+summary_path <- file.path(input_dir, "Summary_Matrix.xlsx")
+write_xlsx(summary_matrix, path = summary_path)
+cat("Summary matrix written to:", summary_path, "\n")
+
+cat("Processing complete:", total_file_number, "files processed.\n")
+```
