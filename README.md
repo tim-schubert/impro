@@ -13,3 +13,6 @@ This script calculates mean area and volume values per individual.
 ## Spot count summary
 This script allows users to summarize spot counts from multiple Spot reconstructions per individual sample.
 
+# Citation
+When using impro, please cite https://doi.org/10.1101/2025.06.10.658830.
+
